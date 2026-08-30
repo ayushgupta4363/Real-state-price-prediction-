@@ -1,4 +1,5 @@
 streamlit
+streamlit-authenticator
 scikit-learn==1.8.0
 joblib
 numpy

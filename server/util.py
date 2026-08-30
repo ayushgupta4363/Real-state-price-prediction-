@@ -9,22 +9,26 @@ __data_columns=None
 __model =None
 __scaler=None
 
-def get_estimated_price(location,sqft,bhk,bath):
-    try :
-        loc_index=__data_columns.index(location.lower())
-    except :
+def get_estimated_price(location, sqft, bhk, bath):
+    try:
+        loc_index = __data_columns.index(location.lower())
+    except:
         loc_index = -1
 
-    x=np.zeros(len(__data_columns))
-    x[0]= sqft
-    x[1]= bath
-    x[2]= bhk
-    if loc_index >=0:
-        x[loc_index]=1
+    x = np.zeros(len(__data_columns))
+    x[0] = sqft
+    x[1] = bath
+    x[2] = bhk
+    if loc_index >= 0:
+        x[loc_index] = 1
 
-    # Apply scaling before predicting
-    x_scaled = __scaler.transform([x])
-    return round(__model.predict(x_scaled)[0], 2)    
+    # Check if scaler exists before transforming
+    if __scaler is not None:
+        x = __scaler.transform([x])
+    else:
+        x = [x]
+
+    return round(__model.predict(x)[0], 2)
 
 def load_saved_artifacts():
     print("loading saved artifacts...start")
