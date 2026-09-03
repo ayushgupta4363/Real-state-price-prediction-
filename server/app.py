@@ -12,17 +12,30 @@ st.set_page_config(page_title="Bangalore House Price Predictor", layout="wide")
 # Initialize database
 db.init_db()
 
-# --- 1. Load Google Client Secrets ---
-if "web" in st.secrets:
-    client_config = dict(st.secrets["web"])
-    # Uses your Streamlit Cloud production URL instead of localhost
-    REDIRECT_URI = "https://ayushgupta4363-real-state-price-prediction--serverapp-5n0k8k.streamlit.app"
-else:
-    base_dir = os.path.dirname(__file__)
-    client_secrets_file = os.path.join(base_dir, "client_secret.json")
+# --- 1. Safe Secret Loader (Handles Local & Streamlit Cloud) ---
+base_dir = os.path.dirname(__file__)
+client_secrets_file = os.path.join(base_dir, "client_secret.json")
+
+client_config = None
+REDIRECT_URI = "http://localhost:8501"
+
+# Check local client_secret.json first
+if os.path.exists(client_secrets_file):
     with open(client_secrets_file, "r") as f:
         client_config = json.load(f)["web"]
-    REDIRECT_URI = client_config["redirect_uris"][0]
+    REDIRECT_URI = client_config.get("redirect_uris", ["http://localhost:8501"])[0]
+else:
+    # Safely fall back to Streamlit Cloud Secrets without crashing locally
+    try:
+        if "web" in st.secrets:
+            client_config = dict(st.secrets["web"])
+            REDIRECT_URI = "https://ayushgupta4363-real-state-price-prediction--serverapp-5n0k8k.streamlit.app"
+    except Exception:
+        pass
+
+if not client_config:
+    st.error("OAuth configuration missing! Keep client_secret.json locally or configure secrets in Streamlit Cloud Settings.")
+    st.stop()
 
 CLIENT_ID = client_config["client_id"]
 CLIENT_SECRET = client_config["client_secret"]
@@ -43,7 +56,6 @@ query_params = st.query_params
 if "code" in query_params and not st.session_state["authenticated"]:
     auth_code = query_params["code"]
     try:
-        # Exchange authorization code for tokens directly
         token_payload = {
             "code": auth_code,
             "client_id": CLIENT_ID,
@@ -57,7 +69,7 @@ if "code" in query_params and not st.session_state["authenticated"]:
         if "access_token" in token_data:
             access_token = token_data["access_token"]
             
-            # Fetch user email profile from OpenID Connect endpoint
+            # Fetch user profile from OpenID Connect endpoint
             user_response = requests.get(
                 USERINFO_URI,
                 headers={"Authorization": f"Bearer {access_token}"}
@@ -66,7 +78,6 @@ if "code" in query_params and not st.session_state["authenticated"]:
             oauth_email = user_info.get("email")
 
             if oauth_email:
-                # Save user to SQLite if first time
                 if not db.get_user_by_email(oauth_email):
                     db.register_user(oauth_email, password_hash=None, provider="google")
                 
@@ -135,6 +146,17 @@ if not st.session_state["authenticated"]:
     _, center_col, _ = st.columns([1, 1.2, 1])
 
     with center_col:
+        # App Branding Header
+        st.markdown(
+            """
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <h1 style="font-size: 2rem; margin-bottom: 0.2rem;">🏡 Bangalore House Price Predictor</h1>
+                <p style="color: #9ca3af; font-size: 0.95rem;">Estimate property values using machine learning</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
         with st.container(border=True):
             if st.session_state["auth_mode"] == "login":
                 email = st.text_input("Email Address", placeholder="you@company.com").strip().lower()
@@ -154,7 +176,7 @@ if not st.session_state["authenticated"]:
                             else:
                                 st.error("Invalid email or password.")
                         elif user and not user[1]:
-                            st.info("This account was created with Google Sign-In. Use Google button below.")
+                            st.info("This account was created with Google Sign-In. Use the Google button below.")
                         else:
                             st.error("Account not found. Please register below.")
 
@@ -198,14 +220,14 @@ if not st.session_state["authenticated"]:
 
             st.markdown("<div class='divider-text'>─── Or Continue With ───</div>", unsafe_allow_html=True)
 
-            # Direct Standard OAuth2 Authorization URL Construction
+            # Direct Standard OAuth2 Authorization URL
             oauth_params = {
                 "client_id": CLIENT_ID,
                 "redirect_uri": REDIRECT_URI,
                 "response_type": "code",
                 "scope": "openid email profile",
                 "access_type": "offline",
-                "prompt": "consent",
+                "prompt": "select_account consent",
             }
             auth_url = f"{AUTH_URI}?{urllib.parse.urlencode(oauth_params)}"
 
@@ -243,7 +265,7 @@ else:
     st.write("Enter the details of the property to get an estimated price.")
     st.divider()
 
-    # Load ML artifacts once
+    # Load artifacts once
     if "data_loaded" not in st.session_state:
         util.load_saved_artifacts()
         st.session_state["data_loaded"] = True
