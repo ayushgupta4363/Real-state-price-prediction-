@@ -13,15 +13,19 @@ st.set_page_config(page_title="Bangalore House Price Predictor", layout="wide")
 db.init_db()
 
 # --- 1. Load Google Client Secrets ---
-base_dir = os.path.dirname(__file__)
-client_secrets_file = os.path.join(base_dir, "client_secret.json")
-
-with open(client_secrets_file, "r") as f:
-    client_config = json.load(f)["web"]
+if "web" in st.secrets:
+    client_config = dict(st.secrets["web"])
+    # Uses your Streamlit Cloud production URL instead of localhost
+    REDIRECT_URI = "https://ayushgupta4363-real-state-price-prediction--serverapp-5n0k8k.streamlit.app"
+else:
+    base_dir = os.path.dirname(__file__)
+    client_secrets_file = os.path.join(base_dir, "client_secret.json")
+    with open(client_secrets_file, "r") as f:
+        client_config = json.load(f)["web"]
+    REDIRECT_URI = client_config["redirect_uris"][0]
 
 CLIENT_ID = client_config["client_id"]
 CLIENT_SECRET = client_config["client_secret"]
-REDIRECT_URI = client_config["redirect_uris"][0]
 AUTH_URI = client_config.get("auth_uri", "https://accounts.google.com/o/oauth2/auth")
 TOKEN_URI = client_config.get("token_uri", "https://oauth2.googleapis.com/token")
 USERINFO_URI = "https://openidconnect.googleapis.com/v1/userinfo"
