@@ -12,18 +12,28 @@ st.set_page_config(page_title="Bangalore House Price Predictor", layout="wide")
 # Initialize database
 db.init_db()
 
-# --- 1. Load Google Client Secrets ---
+# --- 1. Load Google Client Secrets (Cloud st.secrets fallback to local JSON) ---
 base_dir = os.path.dirname(__file__)
 client_secrets_file = os.path.join(base_dir, "client_secret.json")
 
-with open(client_secrets_file, "r") as f:
-    client_config = json.load(f)["web"]
+if "google_oauth" in st.secrets:
+    CLIENT_ID = st.secrets["google_oauth"]["client_id"]
+    CLIENT_SECRET = st.secrets["google_oauth"]["client_secret"]
+    REDIRECT_URI = st.secrets["google_oauth"]["redirect_uri"]
+    AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
+    TOKEN_URI = "https://oauth2.googleapis.com/token"
+elif os.path.exists(client_secrets_file):
+    with open(client_secrets_file, "r") as f:
+        client_config = json.load(f)["web"]
+    CLIENT_ID = client_config["client_id"]
+    CLIENT_SECRET = client_config["client_secret"]
+    REDIRECT_URI = client_config["redirect_uris"][0]
+    AUTH_URI = client_config.get("auth_uri", "https://accounts.google.com/o/oauth2/auth")
+    TOKEN_URI = client_config.get("token_uri", "https://oauth2.googleapis.com/token")
+else:
+    st.error("Missing OAuth credentials. Set [google_oauth] in Streamlit Secrets or provide client_secret.json.")
+    st.stop()
 
-CLIENT_ID = client_config["client_id"]
-CLIENT_SECRET = client_config["client_secret"]
-REDIRECT_URI = client_config["redirect_uris"][0]
-AUTH_URI = client_config.get("auth_uri", "https://accounts.google.com/o/oauth2/auth")
-TOKEN_URI = client_config.get("token_uri", "https://oauth2.googleapis.com/token")
 USERINFO_URI = "https://openidconnect.googleapis.com/v1/userinfo"
 
 # --- 2. Session State Initialization ---
