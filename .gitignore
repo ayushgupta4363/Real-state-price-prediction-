@@ -2,4 +2,4 @@
 __pycache__/
 server/client_secret.json
 server/users.db
-*.db
+

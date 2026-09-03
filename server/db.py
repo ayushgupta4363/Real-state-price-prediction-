@@ -6,6 +6,8 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    
+    # 1. Create table if not present
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,6 +18,14 @@ def init_db():
         )
     """)
     conn.commit()
+
+    # 2. Add auth_provider column if upgrading an existing older table
+    cursor.execute("PRAGMA table_info(users)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if "auth_provider" not in columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'")
+        conn.commit()
+
     conn.close()
 
 def get_user_by_email(email: str):
