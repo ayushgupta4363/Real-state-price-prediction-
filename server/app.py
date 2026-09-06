@@ -13,21 +13,36 @@ st.set_page_config(page_title="Bangalore House Price Predictor", layout="wide")
 db.init_db()
 
 # --- 1. Load Google Client Secrets (Cloud st.secrets fallback to local JSON) ---
+# --- 1. Load Google Client Secrets (Cloud st.secrets fallback to local JSON) ---
 base_dir = os.path.dirname(__file__)
 client_secrets_file = os.path.join(base_dir, "client_secret.json")
 
-if "google_oauth" in st.secrets:
-    CLIENT_ID = st.secrets["google_oauth"]["client_id"]
-    CLIENT_SECRET = st.secrets["google_oauth"]["client_secret"]
-    REDIRECT_URI = st.secrets["google_oauth"]["redirect_uri"]
+# Safely check if Streamlit secrets exist
+has_cloud_secrets = False
+try:
+    if "google_oauth" in st.secrets:
+        has_cloud_secrets = True
+except Exception:
+    has_cloud_secrets = False
+
+if has_cloud_secrets:
+    # Read and aggressively strip all spaces, newlines, and carriage returns
+    raw_id = str(st.secrets["google_oauth"]["client_id"])
+    raw_secret = str(st.secrets["google_oauth"]["client_secret"])
+    raw_uri = str(st.secrets["google_oauth"]["redirect_uri"])
+
+    CLIENT_ID = "".join(raw_id.split())
+    CLIENT_SECRET = "".join(raw_secret.split())
+    REDIRECT_URI = "".join(raw_uri.split())
+
     AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
     TOKEN_URI = "https://oauth2.googleapis.com/token"
 elif os.path.exists(client_secrets_file):
     with open(client_secrets_file, "r") as f:
         client_config = json.load(f)["web"]
-    CLIENT_ID = client_config["client_id"]
-    CLIENT_SECRET = client_config["client_secret"]
-    REDIRECT_URI = client_config["redirect_uris"][0]
+    CLIENT_ID = client_config["client_id"].strip()
+    CLIENT_SECRET = client_config["client_secret"].strip()
+    REDIRECT_URI = client_config["redirect_uris"][0].strip()
     AUTH_URI = client_config.get("auth_uri", "https://accounts.google.com/o/oauth2/auth")
     TOKEN_URI = client_config.get("token_uri", "https://oauth2.googleapis.com/token")
 else:
@@ -217,7 +232,7 @@ if not st.session_state["authenticated"]:
 
             st.markdown(
                 f"""
-                <a href="{auth_url}" target="_self" class="google-btn">
+                <a href="{auth_url}" target="_top" class="google-btn">
                     <svg class="google-icon" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
